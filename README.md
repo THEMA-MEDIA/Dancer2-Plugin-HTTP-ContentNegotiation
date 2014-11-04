@@ -1,5 +1,5 @@
-Dancer2::Plugin::HTTP::Accept
-=============================
+Dancer2::Plugin::HTTP::ContentNegotiation
+=========================================
 
 A Dancer2 plugin that does the right thing when it comes to Acceptable MIME-types and RFCs
 
@@ -29,7 +29,7 @@ Description
 ===========
 A web server should be capable of content negotiation. This plugin goes way beyond the `Dancer2::Serializer::Mutable` which picks a wrong aproach on deciding what the requested type is. Also, this plugin is easy to extend with different 'serializers' for example `application/pdf` or `image/jpg`.
 
-Dancer2::Plugin::HTTP::Accept will produce all the correct status message decribed in the latest RFCs.
+Dancer2::Plugin::HTTP::ContentNegotiation will produce all the correct status message decribed in the latest RFCs.
 
 Dancer2 Keywords
 ================
@@ -45,5 +45,4 @@ This is only for demonstration purpose.
 
 - It should get an option to define what the default MIME-type should be in none is given.
 - Not yet implemented: Statuscode 300 "Multiple Choises" when the request is not disambigues
-- Not yet implemented: Response Header 'Varies', needed for proxies
-- It does not yet have a return status code: 406 "Not Acceptable"
+- There is a bug in HTTP::Headers::ActionPack that allows values to pass throug with q=0.0
