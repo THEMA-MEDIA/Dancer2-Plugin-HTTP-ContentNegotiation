@@ -2,7 +2,7 @@ use Dancer2;
 use lib '../lib';
 use Dancer2::Plugin::HTTP::ContentNegotiation;
 
-get '/' => sub { "Hello World" };
+get '/text' => sub { "Hello World" };
 
 our $html = <<"EOT";
 <HTML>
@@ -34,7 +34,7 @@ get '/html' => sub {
     );
 };
 
-get '/some' => sub {
+get '/choose' => sub {
     http_choose_accept (
         'text/html'        => sub { $html },
         'application/json' => sub { to_json $data },
@@ -42,7 +42,7 @@ get '/some' => sub {
     );
 };
 
-get '/more' => sub {
+get '/image' => sub {
     http_choose_accept (
         [ 'image/png', 'image/jpeg', 'image' ]
             => sub { "Can't do images of type '" . http_accept . "' yet" },

@@ -16,28 +16,25 @@ sub http_choose_accept {
     my $dsl = shift;
     my $options = (@_ % 2) ? pop : undef;
     
-    my ($selectors,$coderefs) = _split_selector_coderef(@_);
-    
-    my $selector;
+    my %selectors = _parse_selectors(@_);
+    my $selected;
     if ( $dsl->request->header('Accept') ) {
-        $selector = $negotiator->choose_media_type (
-            $selectors,
+        $selected = $negotiator->choose_media_type (
+            [ keys %selectors ],
             $dsl->request->header('Accept')
         );
     };
 
-    unless ($selector) {
+    unless ($selected) {
         $dsl->status(406); # Not Acceptable
-        halt;
+        $dsl->halt;
     }
 
-    my $index = first_index { $_ eq $selector } @$selectors;
-    
-    $dsl->vars->{http_accept} = $selector;
-    $dsl->header('Content-Type' => "$selector" );    
+    $dsl->vars->{http_accept} = $selected;
+    $dsl->header('Content-Type' => "$selected" );    
     $dsl->header('Vary' => join ', ', 'Accept', $dsl->header('Vary') )
-        if @$selectors > 1 ;
-    return $coderefs->[$index]->($dsl);
+        if keys %selectors > 1 ;
+    return $selectors{$selected}{coderef}->($dsl);
 };
 
 register http_choose_accept => \&http_choose_accept;
@@ -70,10 +67,10 @@ on_plugin_import {
     my $app = $dsl->app;
 };
 
-sub _split_selector_coderef {
-    
-    my (@selectors, @coderefs);
-    while ( my ($selectors, $coderef) = @{[ shift, shift ]} ) {
+sub _parse_selectors {
+    my %selectors;
+    while ( @_ ) {
+        my ($selectors, $coderef) = @{[ shift, shift ]};
         last unless $selectors;
         $selectors = [ $selectors ] unless ref $selectors eq 'ARRAY';
         foreach ( @$selectors ) {
@@ -82,13 +79,18 @@ sub _split_selector_coderef {
                     qq{Invallid http_choose usage: }
                 .   qq{'$_' needs a CODE ref};
             }
-            push @selectors, $_;
-            push @coderefs, $coderef;
+            if ( exists $selectors{$_} ) {
+                die
+                    qq{Invallid http_choose usage: }
+                .   qq{Duplicated selector '$_'};
+            }
+            $selectors{$_} = {
+                coderef => $coderef,
+            };
         }
     }
-    
-    return (\@selectors, \@coderefs);
-}; # _split_selector_coderef
+    return %selectors;
+}; # _selectors_hasref
 
 register_plugin;
 
