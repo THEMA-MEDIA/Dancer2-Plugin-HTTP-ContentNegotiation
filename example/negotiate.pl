@@ -38,14 +38,27 @@ get '/choose' => sub {
     http_choose_accept (
         'text/html'        => sub { $html },
         'application/json' => sub { to_json $data },
-#       'application/xml ' => sub { to_xml $data },
+        'application/xml ' => sub { to_xml $data },
+#       { default => 'application/json' },
+        { default => undef },
     );
 };
 
 get '/image' => sub {
     http_choose_accept (
-        [ 'image/png', 'image/jpeg', 'image' ]
+        [ 'image/png', 'image/jpeg; compression=12', 'image/*' ]
             => sub { "Can't do images of type '" . http_accept . "' yet" },
+#       { default => 'image/tiff' },
+    );
+};
+
+get '/hello' => sub {
+    http_choose_accept_language (
+        'nl'    => sub { 'Hallo Amsterdam' },
+        'de'    => sub { 'Hallo Berlin' },
+        'en'    => sub { 'Hello World' },
+        'en-US' => sub { 'Hello Washington' },
+        'en-GB' => sub { 'Hello London' }
     );
 };
 

@@ -7,18 +7,32 @@ Synopsis
 ========
 
     # return the ight content, based on the HTTP HEADER field: Accept
+    
     get '/user/:id' => sub {
+      
       my %user_data = retrieve_from_database( param('id') );
+      
       http_choose_accept (
+        
+        # standard HTML, handled by the template system
+        
         'text/html'
             => sub { template 'user_profile_page' => { %user_data } },
+        
+        # JSON, handled by the already provided to_json subroutine
+        
         'application/json'
             => sub { return to_json \%user_data },
+        
+        # either a JPG or PNG image, handled by some sub that takes two params:
+        # -user, which is the ID
+        # -type, which is the image format to render the image
+        
         [ 'image/png', 'image/jpeg' ]
             => sub {
               return user_thumbnail(
                 user => param('id'),
-                type => http_accept,
+                type => http_accept, # being set by the plugin
               )
             },
       )  
@@ -27,22 +41,29 @@ Synopsis
 
 Description
 ===========
-A web server should be capable of content negotiation. This plugin goes way beyond the `Dancer2::Serializer::Mutable` which picks a wrong aproach on deciding what the requested type is. Also, this plugin is easy to extend with different 'serializers' for example `application/pdf` or `image/jpg`.
+A web server should be capable of content negotiation.
+This plugin goes way beyond the `Dancer2::Serializer::Mutable`
+which picks a wrong aproach on deciding what the requested type is.
+Also, this plugin is easy to extend with different 'serializers'
+for example `application/pdf` or `image/jpg`.
 
-Dancer2::Plugin::HTTP::ContentNegotiation will produce all the correct status message decribed in the latest RFCs.
+`Dancer2::Plugin::HTTP::ContentNegotiation` will produce all the correct status message decribed in the latest RFCs.
 
 Dancer2 Keywords
 ================
-* http_choose_accept
+* `http_choose_accept`
 the big switch statement
 
-* http_accept
+* `http_accept`
 holds the value of the chosen HTTP Accept: header-field
 
 Release Note
 ============
 This is only for demonstration purpose.
 
-- It should get an option to define what the default MIME-type should be in none is given.
-- Not yet implemented: Statuscode 300 "Multiple Choises" when the request is not disambigues
-- There is a bug in HTTP::Headers::ActionPack that allows values to pass throug with q=0.0
+- It should get an option to define what the default MIME-type should be
+  when none is given.
+- Not yet implemented: Statuscode `300 "Multiple Choices"`
+  when the request is not disambigues
+- There is a bug in `HTTP::Headers::ActionPack`
+  that allows values to pass throug with q=0.0
