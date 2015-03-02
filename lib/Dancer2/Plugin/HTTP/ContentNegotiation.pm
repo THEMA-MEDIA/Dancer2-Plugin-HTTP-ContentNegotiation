@@ -36,10 +36,10 @@ register 'http_choose_accept_encoding' => sub {
 
 sub http_choose {
     my $dsl     = shift;
-    my $header  = pop; 
+    my $accept  = pop; 
     my $options = (@_ % 2) ? pop : undef;
     
-    my %choices = _parse_choices(@_);
+    my @choices = _parse_choices(@_);
     
     # prepare for default behaviour
     # default                ... if none match, pick first in definition list
@@ -47,26 +47,32 @@ sub http_choose {
     # default => undef       ... do not make assumptions, return 406
     my $choice_first = ref $_[0] eq 'ARRAY' ? $_[0]->[0] : $_[0];
     my $choice_default = $options->{'default'} if exists $options->{'default'};
-    if ( $choice_default and not exists $choices{$choice_default} ) {
-        $dsl->app->log ( warning =>
-            qq|Invallid http_choose usage: |
-        .   qq|'$choice_default' does not exist in choices|
-        );
-        $dsl->status(500);
-        $dsl->halt;
-    }
+#   if ( $choice_default and not exists $choices{$choice_default} ) {
+#       $dsl->app->log ( warning =>
+#           qq|Invallid http_choose usage: |
+#       .   qq|'$choice_default' does not exist in choices|
+#       );
+#       $dsl->status(500);
+#       $dsl->halt;
+#   }
     
     # choose from the provided definition
     my $selected = undef;
-    my $method = $negotiation_choosers{$header}; # this should be avoided
-    if ( $dsl->request->header($header) ) {
+    my $method = $negotiation_choosers{$accept}; # this should be avoided
+    if ( $dsl->request->header($accept) ) {
         $selected = $negotiator->$method (
-            [ keys %choices ],
-            $dsl->request->header($header)
+            [ map { $_->{selector} } @choices ],
+            $dsl->request->header($accept)
         );
     };
     # if nothing selected, use sensible default
-    $selected ||= exists $options->{'default'} ? $options->{'default'} : $choice_first;
+#   $selected ||= exists $options->{'default'} ? $options->{'default'} : $choice_first;
+    unless ($selected) {
+        $selected = $negotiator->$method (
+            [ map { $_->{selector} }  @choices ],
+            exists $options->{'default'} ? $options->{'default'} : $choice_first
+        );
+    };
     
     # if still nothing selected, return 406 error
     unless ($selected) {
@@ -74,12 +80,13 @@ sub http_choose {
         $dsl->halt;
     };
     
-    my $variable_name = "http_$header" =~ y/ -/__/r;
+    my $variable_name = "http_$accept" =~ y/ -/__/r;
     $dsl->vars->{$variable_name} = $selected;
-    $dsl->header('Content-Type' => "$selected" );    
-    $dsl->header('Vary' => join ', ', $header, $dsl->header('Vary') )
-        if keys %choices > 1 ;
-    return $choices{$selected}{coderef}->($dsl);
+    $dsl->header('Content-Type' => "$selected" ); # XXX THIS IS NOT TRUE
+    $dsl->header('Vary' => join ', ', $accept, $dsl->header('Vary') )
+        if @choices > 1 ;
+    my @coderefs = grep {$_->{selector} eq $selected} @choices;
+    return $coderefs[0]{coderef}->($dsl);
 };
 
 sub http_accept {
@@ -113,11 +120,12 @@ on_plugin_import {
 
 sub _parse_choices {
     # _parse_choices
-    # unraffles a paired list into a hash of choices and associated coderefs
-    # since the 'key' can be an arrayref too, these are added to the hash with
+    # unraffles a paired list into a list of hashes,
+    # each hash containin a 'selector' and associated coderef.
+    # since the 'key' can be an arrayref too, these are added to the list with
     # seperate values
     
-    my %choices;
+    my @choices;
     while ( @_ ) {
         my ($choices, $coderef) = @{[ shift, shift ]};
         last unless $choices;
@@ -130,18 +138,20 @@ sub _parse_choices {
                     qq{Invallid http_choose usage: }
                 .   qq{'$_' needs a CODE ref};
             }
-            if ( exists $choices{$_} ) {
-                die
-                    qq{Invallid http_choose usage: }
-                .   qq{Duplicated choice '$_'};
-            }
-            $choices{$_} = {
-                coderef => $coderef,
+#           if ( exists $choices{$_} ) {
+#               die
+#                   qq{Invallid http_choose usage: }
+#               .   qq{Duplicated choice '$_'};
+#           }
+            push @choices,
+            {
+                selector => $_,
+                coderef  => $coderef,
             };
         }
     }
-    return %choices;
-}; # _choices_hasref
+    return @choices;
+}; # _parse_choices
 
 register_plugin;
 
