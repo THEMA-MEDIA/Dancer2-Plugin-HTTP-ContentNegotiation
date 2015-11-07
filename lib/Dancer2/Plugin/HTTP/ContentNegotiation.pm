@@ -19,22 +19,22 @@ our %negotiation_choosers = (
 );
 
 register 'http_choose_accept' => sub {
-    return http_choose ( @_, 'accept' );
+    return _http_choose ( @_, 'accept' );
 };
 
 register 'http_choose_accept_language' => sub {
-    return http_choose ( @_, 'accept-language' );
+    return _http_choose ( @_, 'accept-language' );
 };
 
 register 'http_choose_accept_charset' => sub {
-    return http_choose ( @_, 'accept-charset' );
+    return _http_choose ( @_, 'accept-charset' );
 };
 
 register 'http_choose_accept_encoding' => sub {
-    return http_choose ( @_, 'accept-encoding' );
+    return _http_choose ( @_, 'accept-encoding' );
 };
 
-sub http_choose {
+sub _http_choose {
     my $dsl     = shift;
     my $accept  = pop; 
     my $options = (@_ % 2) ? pop : undef;
@@ -89,7 +89,7 @@ sub http_choose {
     return $coderefs[0]{coderef}->($dsl);
 };
 
-sub http_accept {
+register 'http_accept' => sub {
     # http_accept, returns the MIME-type being selected inside the route
     
     my $dsl = shift;
@@ -109,9 +109,6 @@ sub http_accept {
     return $dsl->vars->{http_accept};
     
 } # http_accept
-
-register http_accept => \&http_accept;
-
 
 on_plugin_import {
     my $dsl = shift;
