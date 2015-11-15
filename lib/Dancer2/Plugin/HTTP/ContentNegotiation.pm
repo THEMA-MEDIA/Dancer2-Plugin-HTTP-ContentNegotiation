@@ -11,42 +11,50 @@ use HTTP::Headers::ActionPack;
 # use List::MoreUtils 'first_index';
 
 our $negotiator = HTTP::Headers::ActionPack->new->get_content_negotiator;
-our %negotiation_choosers = (
-    'accept'          => "choose_media_type",
-    'accept-language' => "choose_language",
-    'accept-charset'  => "choose_charset",
-    'accept-encoding' => "choose_encoding",
+our %http_headers = (
+    'media_type'    => "Accept",
+    'language'      => "Accept-Language",
+    'charset'       => "Accept-Charset",
+    'encoding'      => "Accept-Encoding",
 );
 
-register 'http_choose_accept' => sub {
-    return _http_choose ( @_, 'accept' );
+register 'http_choose_media_type' => sub {
+    return _http_choose ( @_, 'media_type' );
 };
 
-register 'http_choose_accept_language' => sub {
-    return _http_choose ( @_, 'accept-language' );
+register 'http_choose_language' => sub {
+    return _http_choose ( @_, 'language' );
 };
 
-register 'http_choose_accept_charset' => sub {
-    return _http_choose ( @_, 'accept-charset' );
+register 'http_choose_charset' => sub {
+    return _http_choose ( @_, 'charset' );
 };
 
-register 'http_choose_accept_encoding' => sub {
-    return _http_choose ( @_, 'accept-encoding' );
+register 'http_choose_encoding' => sub {
+    return _http_choose ( @_, 'encoding' );
+};
+
+# compatabillity with the Accept header - it is not Accept-Media-Type
+register 'http_choose' => sub {
+    return _http_choose ( @_, 'media_type' );
 };
 
 sub _http_choose {
     my $dsl     = shift;
-    my $accept  = pop; 
+    my $switch  = pop; 
     my $options = (@_ % 2) ? pop : undef;
     
     my @choices = _parse_choices(@_);
     
     # prepare for default behaviour
     # default                ... if none match, pick first in definition list
-    # default => 'MIME-type' ... takes this as response, must be defined!
+    # default => 'choice'    ... takes this as response, must be defined!
     # default => undef       ... do not make assumptions, return 406
     my $choice_first = ref $_[0] eq 'ARRAY' ? $_[0]->[0] : $_[0];
     my $choice_default = $options->{'default'} if exists $options->{'default'};
+    
+#   # make sure that a 'default' is actually in the list of choices
+#   
 #   if ( $choice_default and not exists $choices{$choice_default} ) {
 #       $dsl->app->log ( warning =>
 #           qq|Invallid http_choose usage: |
@@ -58,13 +66,14 @@ sub _http_choose {
     
     # choose from the provided definition
     my $selected = undef;
-    my $method = $negotiation_choosers{$accept}; # this should be avoided
-    if ( $dsl->request->header($accept) ) {
+    my $method = 'choose' . '_' . $switch;
+    if ( $dsl->request->header($http_headers{$switch}) ) {
         $selected = $negotiator->$method (
             [ map { $_->{selector} } @choices ],
-            $dsl->request->header($accept)
+            $dsl->request->header($http_headers{$switch})
         );
     };
+    
     # if nothing selected, use sensible default
 #   $selected ||= exists $options->{'default'} ? $options->{'default'} : $choice_first;
     unless ($selected) {
@@ -80,35 +89,61 @@ sub _http_choose {
         $dsl->halt;
     };
     
-    my $variable_name = "http_$accept" =~ y/ -/__/r;
-    $dsl->vars->{$variable_name} = $selected;
-    $dsl->header('Content-Type' => "$selected" ); # XXX THIS IS NOT TRUE
-    $dsl->header('Vary' => join ', ', $accept, $dsl->header('Vary') )
-        if @choices > 1 ;
+    $dsl->vars->{"http_chosen_$switch"} = $selected;
+    
+    # set the apropriate headers for Content-Type and Content-Language
+    # XXX Content-Type could consist of type PLUS charset if it's text-based
+    if ($switch eq 'media_type') {
+        $dsl->header('Content-Type' => "$selected" );
+    };
+    if ($switch eq 'language') {
+        $dsl->header('Content-Language' => "$selected" );
+    };
+    
+    $dsl->header('Vary' =>
+        join ', ', $http_headers{$switch}, $dsl->header('Vary')
+    ) if @choices > 1 ;
+    
     my @coderefs = grep {$_->{selector} eq $selected} @choices;
     return $coderefs[0]{coderef}->($dsl);
 };
 
-register 'http_accept' => sub {
-    # http_accept, returns the MIME-type being selected inside the route
+register 'http_chosen_media_type' => sub {
+    return _http_chosen ( @_, 'media_type' );
+};
+
+register 'http_chosen_language' => sub {
+    return _http_chosen ( @_, 'language' );
+};
+
+register 'http_chosen_charset' => sub {
+    return _http_chosen ( @_, 'charset' );
+};
+
+register 'http_chosen_encoding' => sub {
+    return _http_chosen ( @_, 'encoding' );
+};
+
+# compatabillity with the Accept header - it is not Accept-Media-Type
+register 'http_chosen' => sub {
+    return _http_chosen ( @_, 'media_type' );
+};
+
+sub _http_chosen {
+    my $dsl     = shift;
+    my $switch  = pop;
     
-    my $dsl = shift;
+    $dsl->app->log ( error =>
+        "http_chosen_$switch does not exist"
+    ) unless exists $dsl->vars->{"http_chosen_$switch"}; 
     
-    unless ( exists $dsl->vars->{http_accept} ) {
-        $dsl->app->log( warning =>
-            qq|'http_accept' should only be used in an authenticated route|
-        );
-    }
-    if (@_ >= 1) {
-        $dsl->app->log ( error =>
-            qq|'http_accept' can't set to new value 'shift'|
-        );
-    }
+    $dsl->app->log( error =>
+        "http_chosen_$switch is designed for read-only"
+    ) if (@_ >= 1);
     
-    return unless exists $dsl->vars->{http_accept};
-    return $dsl->vars->{http_accept};
-    
-} # http_accept
+    return unless exists $dsl->vars->{"http_chosen_$switch"};
+    return $dsl->vars->{"http_chosen_$switch"};
+};
 
 on_plugin_import {
     my $dsl = shift;
