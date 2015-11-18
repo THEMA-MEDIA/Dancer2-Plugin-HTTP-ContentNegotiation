@@ -55,8 +55,18 @@ Dancer2 Keywords
 ================
 * `http_choose_media_type`
 use the HTTP Accept header field to choose from a list of provide media-types.
-* `http_chosen`
+* `http_choose_language`
+* `http_choose_charset`
+* `http_choose_encoding`
+* `http_choose`
+name compatebility
+
+* `http_chosen_media_type`
 holds the value of the chosen HTTP Accept header-field
+* `http_chosen_language`
+* `http_chosen_charset`
+* `http_chosen_encoding`
+* `http_chosen`
 
 Release Note
 ============
