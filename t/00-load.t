@@ -1,10 +1,18 @@
-#!/usr/bin/perl
-
+#!perl -T
+use 5.006;
 use strict;
 use warnings;
-
 use Test::More;
 
-use_ok( 'Dancer2::Plugin::HTTP::ContentNegotiation' );
+plan tests => 1;
 
-done_testing;
+BEGIN {
+    use_ok( 'Dancer2::Plugin::HTTP::ContentNegotiation' )
+    || print "Bail out!\n";
+}
+
+diag( "Testing"
+    . " Dancer2::Plugin::HTTP::ContentNegotiation "
+    . "$Dancer2::Plugin::HTTP::ContentNegotiation::VERSION, "
+    . "Perl $], $^X"
+);
