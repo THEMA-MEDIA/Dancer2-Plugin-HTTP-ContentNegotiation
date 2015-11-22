@@ -18,7 +18,8 @@ WriteMakefile(
         'Test::More' => 0,
     },
     PREREQ_PM => {
-        'Dancer2::Plugin' => 0,
+        'Dancer2::Plugin'           => 0,
+        'HTTP::Headers::ActionPack' => 0,
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES => 'Dancer2-Plugin-HTTP-ContentNegotiation-*' },
